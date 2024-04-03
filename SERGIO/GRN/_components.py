@@ -1,3 +1,5 @@
+from typing import Literal
+
 import numba
 import numpy as np
 import numpy.typing as npt
@@ -23,8 +25,11 @@ class Gene:
         # self.outInteractions = {} # 'target names (seperated by comma if coop)' --> interactions
         # self.isTF_ = TF
 
-    def _calc_prod(self, cTypes, regs_conc="ss"):
+    def _calc_prod(
+        self, cTypes: npt.NDArray, regs_conc: Literal["ss", "sim"] = "ss"
+    ) -> npt.NDArray:
         if self.isMR_:
+            assert self.prod_rates_ is not None
             return self.prod_rates_[cTypes]  # np.arr
 
         ret = np.zeros(shape=(len(cTypes),))
@@ -37,13 +42,22 @@ class Gene:
         assert len(conc) == len(cTypes)
         assert self.sim_conc_ is not None and self.current_iters is not None
 
-        # prevents negative expression
-        self.sim_conc_[cTypes, self.current_iters[cTypes]] = np.maximum(0.0, conc)
-        self.current_iters[cTypes] += 1
+        if len(cTypes) == len(self.sim_conc_):
+            # Special case
+            self.sim_conc_[:, self.current_iters[0]] = np.maximum(0.0, conc)
+            self.current_iters += 1
+        else:
+            # prevents negative expression
+            self.sim_conc_[cTypes, self.current_iters[cTypes]] = np.maximum(0.0, conc)
+            self.current_iters[cTypes] += 1
 
     def get_last_conc(self, cTypes: npt.NDArray) -> npt.NDArray:
         assert self.sim_conc_ is not None and self.current_iters is not None
-        return self.sim_conc_[cTypes, self.current_iters[cTypes] - 1]  # type: ignore
+        if len(cTypes) == len(self.sim_conc_):
+            # Special case
+            return self.sim_conc_[:, self.current_iters[0] - 1]
+        else:
+            return self.sim_conc_[cTypes, self.current_iters[cTypes] - 1]  # type: ignore
 
 
 # todo make a base interaction object

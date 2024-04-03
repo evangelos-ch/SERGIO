@@ -154,9 +154,7 @@ class GRN:
         """
         genes: list[Gene] = self.attr_["level2gene"][level]
         for g in genes:
-            prod = g._calc_prod(
-                cTypes=list(range(self.nCellTypes_)), regs_conc="ss"
-            )  # np.arr of size No. cell types
+            prod = g._calc_prod(cTypes=np.arange(self.nCellTypes_), regs_conc="ss")
             g.ss_conc_ = prod / g.decay_
 
     def _estimate_half_response(self, level: int) -> None:
