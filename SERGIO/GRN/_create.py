@@ -1,3 +1,5 @@
+import pathlib
+
 import networkx as nx
 import numpy as np
 import pandas as pd
@@ -5,6 +7,8 @@ import pandas as pd
 from ._components import Gene, SingleInteraction
 from ._grn import GRN
 from ._utils import grnParam, parameterize_grn
+
+FILE_PATH = pathlib.Path(__file__).parent
 
 
 def grn_from_v1(path, n=2, decay=0.8) -> GRN:
@@ -68,7 +72,10 @@ def grn_from_human(nGenes=400, k_act=[1, 5], k_rep=[-5, -1], n=2, decay=0.8) -> 
     read genes
     """
     df = pd.read_csv(
-        "SERGIO/GRN/ref/human.node", sep="\t", names=["id", "symb", "unk"], header=None
+        f"{FILE_PATH}/ref/human.node",
+        sep="\t",
+        names=["id", "symb", "unk"],
+        header=None,
     )
     genes_list = []
     for _, r in df.iterrows():
@@ -85,7 +92,7 @@ def grn_from_human(nGenes=400, k_act=[1, 5], k_rep=[-5, -1], n=2, decay=0.8) -> 
     read edges
     """
     df = pd.read_csv(
-        "SERGIO/GRN/ref/human.source",
+        f"{FILE_PATH}/ref/human.source",
         sep="\t",
         header=None,
         dtype="string",
@@ -158,7 +165,7 @@ def grn_from_Ecoli(nGenes=400, k_act=[1, 5], k_rep=[-5, -1], n=2, decay=0.8) -> 
     read genes
     """
     df = pd.read_csv(
-        "SERGIO/GRN/ref/EcoliNet.v1.txt",
+        f"{FILE_PATH}/ref/EcoliNet.v1.txt",
         sep="\t",
         names=["reg", "tar", "score"],
         header=None,

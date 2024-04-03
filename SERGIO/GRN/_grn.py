@@ -4,7 +4,7 @@
 
 import pathlib
 from collections import defaultdict
-from typing import TypeVar
+from typing import TypedDict, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -18,21 +18,31 @@ from ._utils import getInterName
 PathLike = TypeVar("PathLike", str, pathlib.Path, None)
 
 
+class GRNAttrs(TypedDict):
+    genes: dict[str, Gene]
+    interactions: dict[str, SingleInteraction]
+    level2gene: dict[int, list]
+    maxLevel: int
+    mrs: set[str]
+    other: dict
+
+
 class GRN:
-    def __init__(self, **kwargs):
-        self.attr_ = self._build_attr(**kwargs)
+    def __init__(self, **kwargs) -> None:
+        self.attr_: GRNAttrs = self._build_attr(**kwargs)
         self.mrs_found_ = False
 
-    def _build_attr(self, **kwargs):
-        ret = {
+    def _build_attr(self, **kwargs: dict) -> GRNAttrs:
+        ret: GRNAttrs = {
             "genes": {},
             "interactions": {},
             "mrs": set(),
             "level2gene": defaultdict(list),
             "maxLevel": -1,
+            "other": {},
         }
         for k in kwargs:
-            ret[k] = {} if kwargs[k] == "dict" else kwargs[k]
+            ret["other"][k] = {} if kwargs[k] == "dict" else kwargs[k]
 
         return ret
 
@@ -63,11 +73,10 @@ class GRN:
         interaction.tar_ = self._add_gene(interaction.tar_)
         # self.attr_['mrs'].remove(interaction.tar_.name_)
         self.attr_["mrs"].add(interaction.tar_.name_)
-        interaction.reg_ = [self._add_gene(g) for g in interaction.reg_]
 
-        interaction.tar_.regs += [
-            interaction.reg_
-        ]  # regs are added as list, regs of doubly interactions are added as lists of size > 1
+        # regs are added as list, regs of doubly interactions are added as lists of size > 1
+        interaction.reg_ = [self._add_gene(g) for g in interaction.reg_]
+        interaction.tar_.regs += interaction.reg_
 
         rList = interaction.reg_
         name = getInterName(rList, interaction.tar_)
@@ -83,9 +92,20 @@ class GRN:
         self._set_MR_profile(mr_profile)
         self._estimate_params(half_resp=update_half_resp)
 
+    def init_sim_conc(self, max_iter: int) -> None:
+        for g in self.attr_["genes"].values():
+            if g.sim_conc_ is None:
+                g.sim_conc_ = np.zeros((self.nCellTypes_, max_iter), dtype=np.float_)
+                g.current_iters = np.zeros((self.nCellTypes_,), dtype=np.int_)
+            else:
+                g.sim_conc_ = np.concatenate(
+                    [g.sim_conc_, np.zeros((self.nCellTypes_, max_iter))], axis=1
+                )
+                g.current_iters = np.ones((self.nCellTypes_,), dtype=np.int_)
+
     def _set_levels(self) -> None:
-        U: set[Gene] = set()
-        Z: set[Gene] = set()
+        U: set[str] = set()
+        Z: set[str] = set()
         V = set([g for g in self.attr_["genes"].keys()])
 
         currLayer = 0
@@ -113,11 +133,8 @@ class GRN:
         """
         mrProfile: is an instance of MR object (# TODO: )
         """
-        for (
-            mr_name
-        ) in (
-            mrProfile.profile.keys()
-        ):  # Todo might be changed when MR object is implemented
+        for mr_name in mrProfile.profile.keys():
+            # Todo might be changed when MR object is implemented
             assert mr_name in self.attr_["mrs"]
             self.attr_["genes"][mr_name].prod_rates_ = np.array(
                 mrProfile.profile[mr_name]
@@ -156,9 +173,10 @@ class GRN:
         for g in genes:
             for i in g.inInteractions.values():
                 if isinstance(i, SingleInteraction):
+                    assert i.reg_[0].ss_conc_ is not None
                     i.h_ = np.mean(i.reg_[0].ss_conc_)
                 else:
-                    raise ValueError("not implemented")
+                    raise NotImplementedError
 
     def _estimate_params(self, half_resp: bool) -> None:
         self._estimate_steady_state(level=self.attr_["maxLevel"])

@@ -31,7 +31,7 @@ setup(
     include_package_data=True,
     package_data={"SERGIO": ["py.typed", "*.txt", "*.node", "*.source"]},
     packages=find_packages(),
-    python_requires=">3.5.2",
+    python_requires=">=3.10",
     classifiers=[
         "Programming Language :: Python :: 3",
     ],

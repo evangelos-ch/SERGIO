@@ -1,8 +1,10 @@
+from collections.abc import Sized
+
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
-from SERGIO.GRN import GRN
+from SERGIO.GRN import GRN, Gene
 
 
 class sergio:
@@ -19,9 +21,8 @@ class sergio:
         self.lambda_ = self._get_lambda(self.gNames_, grn)
 
     def _init_conc(self):
-        cTypes = list(range(self.grn_.nCellTypes_))
         for g in self.grn_.attr_["genes"].values():
-            g.append_sim_conc(conc=g.ss_conc_, cTypes=cTypes)
+            g.sim_conc_ = g.ss_conc_[..., None]
 
     def _get_gene_names(self, grn):
         return [k for k in grn.attr_["genes"].keys()]
@@ -30,12 +31,12 @@ class sergio:
         ret = [grn.attr_["genes"][gn].decay_ for gn in gnames]
         return np.array(ret).reshape(-1, 1)
 
-    def _iter_ss(self, noise_ss, dt, cTypes):
+    def _iter_ss(self, noise_ss: int | float, dt: float, cTypes: npt.NDArray) -> None:
         X = np.empty(shape=(len(self.gNames_), len(cTypes)))
         P = np.empty(shape=(len(self.gNames_), len(cTypes)))
         L = self.lambda_
         for ri, gn in enumerate(self.gNames_):
-            gene = self.grn_.attr_["genes"][gn]
+            gene: Gene = self.grn_.attr_["genes"][gn]
             X[ri] = gene.get_last_conc(cTypes)
             P[ri] = gene._calc_prod(cTypes, regs_conc="sim")
 
@@ -52,7 +53,8 @@ class sergio:
             * np.sqrt(dt)
         )
         for gn, conc in zip(self.gNames_, newX):
-            self.grn_.attr_["genes"][gn].append_sim_conc(conc.flatten(), cTypes)
+            gene: Gene = self.grn_.attr_["genes"][gn]  # type: ignore
+            gene.append_sim_conc(conc.flatten(), cTypes)
 
     def _simulate_ss(
         self,
@@ -62,26 +64,28 @@ class sergio:
         safety_iter: int = 50,
         scale_iter: int = 10,
     ) -> None:
-        """
-        # TODO: make sure nCells is already np.array
-        """
+        if not isinstance(nCells, np.ndarray):
+            raise ValueError("nCells needs to be a NumPy array.")
+
+        cTypes = np.arange(self.grn_.nCellTypes_)
+        req = nCells * scale_iter
+        max_iter = np.max(req) + safety_iter
+        self.grn_.init_sim_conc(max_iter=max_iter)
+
         # first do safety iterations
-        cTypes = list(range(self.grn_.nCellTypes_))
         for _ in range(safety_iter):
             self._iter_ss(noise_ss, dt, cTypes)
 
         # next simulate required iterations
-        req = nCells * scale_iter
-        cTypes = list(range(self.grn_.nCellTypes_))
         nIter = 0
-        while cTypes:
+        while len(cTypes) > 0:
             self._iter_ss(noise_ss, dt, cTypes)
             nIter += 1
-            cTypes = np.where(req > nIter)[0].tolist()
+            cTypes = np.where(req > nIter)[0]
 
     def simulate(
         self,
-        nCells: int,
+        nCells: int | float | Sized,
         noise_s: float,
         noise_u=None,
         safety_iter=50,
@@ -125,6 +129,7 @@ class sergio:
             gene_names.append(g.name_)
             for ct in rndInd.keys():
                 ind = rndInd[ct].tolist()
+                assert g.sim_conc_ is not None
                 curr += g.sim_conc_[ct][ind].tolist()
             expr.append(curr)
 
