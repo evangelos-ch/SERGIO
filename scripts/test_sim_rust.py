@@ -5,7 +5,7 @@ import time
 
 import igraph as ig  # type: ignore
 import numpy as np
-import sergio_rs as SERGIO  # type: ignore
+import sergio_rs as SERGIO
 
 np.random.seed(42)
 random.seed(42)
