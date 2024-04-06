@@ -193,7 +193,8 @@ class GRN:
         ret = []
         for i in self.attr_["interactions"].values():
             if len(i.reg_) > 1:
-                raise ValueError("coop regulations is not implemented")
+                raise NotImplementedError
+
             curr = [j.name_ for j in i.reg_]
             curr += [i.tar_.name_, i.k_, i.n_, i.h_]
             ret.append(curr)

@@ -61,15 +61,6 @@ class Gene:
 
 
 # todo make a base interaction object
-@numba.jit
-def _get_hill_inner(x, n, h, k):
-    ret = np.power(x, n) / (np.power(x, n) + np.power(h, n))
-    if k > 0:
-        return k * ret
-    else:
-        return np.abs(k) * (1 - ret)
-
-
 class SingleInteraction:
     def __init__(self, reg: list[Gene], tar: Gene, k=None, h=None, n=None):
         self.reg_: list[Gene] = reg  # can be list if coop edge --> always be list
@@ -94,3 +85,12 @@ class SingleInteraction:
         else:
             x = self.reg_[0].get_last_conc(cTypes)  # np.arr
         return _get_hill_inner(x, self.n_, self.h_, self.k_)
+
+
+@numba.jit
+def _get_hill_inner(x, n, h, k):
+    ret = np.power(x, n) / (np.power(x, n) + np.power(h, n))
+    if k > 0:
+        return k * ret
+    else:
+        return np.abs(k) * (1 - ret)
