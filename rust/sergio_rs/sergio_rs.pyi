@@ -1,5 +1,7 @@
+import enum
 from typing import SupportsFloat
 
+import numpy.typing as npt
 import polars
 
 class GRN:
@@ -33,3 +35,17 @@ class MrProfile:
         low_range: tuple[SupportsFloat, SupportsFloat],
         high_range: tuple[SupportsFloat, SupportsFloat],
     ) -> MrProfile: ...
+
+class NoiseSetting(enum.Enum):
+    DS1 = enum.auto()
+    DS2 = enum.auto()
+    DS3 = enum.auto()
+    DS4 = enum.auto()
+    DS5 = enum.auto()
+    DS6 = enum.auto()
+    DS7 = enum.auto()
+    DS8 = enum.auto()
+    DS13 = enum.auto()
+    DS14 = enum.auto()
+
+def add_technical_noise(expr: npt.NDArray, setting: NoiseSetting) -> npt.NDArray: ...

@@ -5,7 +5,7 @@ import time
 
 import igraph as ig  # type: ignore
 import numpy as np
-import sergio_rs as SERGIO
+import sergio_rs as sergio
 
 np.random.seed(42)
 random.seed(42)
@@ -15,7 +15,7 @@ def _setup_grn(n_genes: int = 100):
 
     # GRN Setup
     topology = ig.Graph.Barabasi(n=n_genes, m=3, directed=True)
-    sergio_grn = SERGIO.GRN()
+    sergio_grn = sergio.GRN()
 
     # Add node names
     for i, vertex in enumerate(topology.vs):
@@ -39,8 +39,8 @@ def _setup_grn(n_genes: int = 100):
                     adjacency_matrix[i, j] = -1
                 # and also add interactions to the GRN
                 decay = 0.8
-                reg = SERGIO.Gene(name=topology.vs[i]["name"], decay=decay)
-                tar = SERGIO.Gene(name=topology.vs[j]["name"], decay=decay)
+                reg = sergio.Gene(name=topology.vs[i]["name"], decay=decay)
+                tar = sergio.Gene(name=topology.vs[j]["name"], decay=decay)
                 sergio_grn.add_interaction(reg, tar, k=weight, h=None, n=2)
 
     sergio_grn.set_mrs()
@@ -53,14 +53,19 @@ start_time = time.time()
 grn = _setup_grn(n_genes=100)
 
 # Initialise simulation
-sim = SERGIO.Sim(
+sim = sergio.Sim(
     grn=grn, num_cells=500, safety_iter=150, scale_iter=10, dt=0.01, noise_s=1
 )
-mr_profile = SERGIO.MrProfile.from_random(
+mr_profile = sergio.MrProfile.from_random(
     grn=grn, num_cell_types=1, low_range=(1, 2.5), high_range=(3.5, 5)
 )
 df = sim.simulate(mr_profile)
 end_time = time.time()
+
+
+# Add noise
+values = df.drop("Genes").to_numpy()
+noisy_data = sergio.add_technical_noise(values, sergio.NoiseSetting.DS6)
 
 print(df)
 print(f"Runtime: {end_time - start_time}s")

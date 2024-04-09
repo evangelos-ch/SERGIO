@@ -11,6 +11,9 @@ crate-type = ["cdylib"]
 [dependencies]
 ndarray = "0.15.6"
 ndarray-rand = "0.14.0"
+ndarray-stats = "0.5.1"
+noisy_float = "0.2.0"
+numpy = "0.20.0"
 polars = { version = "0.38.3", features = ["lazy"] }
 pyo3 = { version = "0.20.3", features = ["extension-module"] }
 pyo3-polars = "0.12.0"
