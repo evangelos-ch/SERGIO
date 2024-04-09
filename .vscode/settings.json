@@ -1,0 +1,3 @@
+{
+    "lldb.launch.initCommands": ["command script import ${workspaceFolder}/.vscode/formatter.py"]
+}

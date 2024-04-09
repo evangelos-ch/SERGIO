@@ -1,12 +1,10 @@
-use std::ops::Not;
-
-use ndarray::{s, Array, Array2, ArrayView2, Axis, NewAxis};
+use ndarray::{s, Array, Array1, Array2, ArrayView2, Axis, NewAxis};
 use ndarray_rand::{
     rand::thread_rng,
-    rand_distr::{Bernoulli, Distribution, LogNormal},
+    rand_distr::{Bernoulli, Distribution, LogNormal, Poisson},
     RandomExt,
 };
-use ndarray_stats::{interpolate::Midpoint, QuantileExt};
+use ndarray_stats::{interpolate::Linear, QuantileExt};
 use noisy_float::types::N64;
 use numpy::{PyArray2, PyReadonlyArray2, ToPyArray};
 use pyo3::{pyclass, pyfunction, Python};
@@ -58,16 +56,36 @@ pub fn add_lib_size_effect(expr: &mut Array2<f64>, mu: f64, sigma: f64) {
 }
 
 pub fn add_dropout(expr: &mut Array2<f64>, k: f64, q: N64) {
-    let mut log_expr = expr.map(|x| (x + 1.0).ln());
-    let log_mid_point = log_expr
-        .quantile_axis_skipnan_mut(Axis(0), q / 100.0, &Midpoint)
+    let log_expr = expr.map(|x| (x + 1.0).ln());
+    // Percentile calculation
+    // Have to first flatten the array to get similar behaviour to NumPy
+    let mut log_expr_flat: Array1<f64> = Array::from_iter(log_expr.iter().cloned());
+    let log_mid_point = log_expr_flat
+        .quantile_axis_skipnan_mut(Axis(0), q / 100.0, &Linear)
+        .unwrap()
+        .first()
+        .copied()
         .unwrap();
-    log_expr.zip_mut_with(&log_mid_point, |x, mid_point| {
-        *x = 1.0 / (1.0 + (-1.0 * k * (*x - mid_point)).exp());
+
+    // Bernoulli prob matrix calculation
+    let mut p = Array::zeros(expr.shape());
+    p.zip_mut_with(&log_expr, |p, x| {
+        *p = 1.0 / (1.0 + (-1.0 * k * (*x - log_mid_point)).exp());
     });
-    expr.zip_mut_with(&log_expr, |x, p| {
-        if Bernoulli::new(*p).unwrap().sample(&mut thread_rng()).not() {
+
+    expr.zip_mut_with(&p, |x, p| {
+        if Bernoulli::new(1.0 - *p).unwrap().sample(&mut thread_rng()) {
             *x = 0.0;
+        }
+    });
+}
+
+pub fn to_umi_counts(expr: &mut Array2<f64>) {
+    expr.map_inplace(|x| {
+        *x = if *x > 0.0 {
+            Poisson::new(*x).unwrap().sample(&mut thread_rng())
+        } else {
+            0.0
         }
     });
 }
@@ -84,6 +102,7 @@ pub fn add_technical_noise_custom(
     add_outlier_effect(&mut data_copy, 0.01, outlier_mu, 1.0);
     add_lib_size_effect(&mut data_copy, library_mu, library_sigma);
     add_dropout(&mut data_copy, dropout_k, dropout_q);
+    to_umi_counts(&mut data_copy);
     data_copy
 }
 
@@ -114,16 +133,15 @@ pub fn py_add_technical_noise<'py>(
     noisy_data.to_pyarray(py)
 }
 
+#[cfg(test)]
 mod tests {
+    use ndarray_rand::rand_distr::Uniform;
+
     use super::*;
 
     #[test]
     fn test_noise() {
-        let arr1 = Array::random_using(
-            (100, 500),
-            LogNormal::new(7.0, 1.0).unwrap(),
-            &mut thread_rng(),
-        );
+        let arr1 = Array::random_using((10, 10), Uniform::new(0.0, 150.0), &mut thread_rng());
         let noisy_data = add_technical_noise(&arr1.view(), &NoiseSetting::DS6);
         assert_ne!(arr1, noisy_data);
     }

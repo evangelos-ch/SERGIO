@@ -69,3 +69,4 @@ noisy_data = sergio.add_technical_noise(values, sergio.NoiseSetting.DS6)
 
 print(df)
 print(f"Runtime: {end_time - start_time}s")
+print(noisy_data)
