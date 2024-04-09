@@ -7,6 +7,7 @@ import numpy as np
 import SERGIO
 import SERGIO.GRN
 import SERGIO.MR
+import SERGIO.Noise
 
 # Seed
 np.random.seed(42)
@@ -65,7 +66,20 @@ sim = SERGIO.sergio(grn)
 
 # Simulate a steady state
 sim.simulate(nCells=500, noise_s=1, safety_iter=150, scale_iter=10)
+noise_model = SERGIO.Noise.scNoise()
+df = sim.getSimExpr()
+noisy_data = noise_model._add_noise(
+    df.values,
+    prob_o=0.01,
+    mean_o=5,
+    scale_o=1,
+    mean_l=4.5,
+    scale_l=0.7,
+    shape_d=8,
+    perc_d=45,
+    to_count=True,
+)
 end_time = time.time()
-
-print(sim.getSimExpr())
+print(df)
 print(f"Runtime: {end_time - start_time}s")
+print(noisy_data)
