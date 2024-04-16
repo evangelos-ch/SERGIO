@@ -11,6 +11,7 @@ use pyo3::{pyclass, pymethods, PyResult};
 use crate::grn::GRN;
 
 #[pyclass]
+#[derive(Clone)]
 pub struct MrProfile {
     pub num_cell_types: usize,
     pub mr_prod_rates: HashMap<String, Array1<f64>>,

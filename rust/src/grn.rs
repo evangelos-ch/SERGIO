@@ -58,6 +58,55 @@ impl GRN {
             }
         }
     }
+
+    pub fn ko_perturbation(&self, gene_name: String, mr_profile: &MrProfile) -> (Self, MrProfile) {
+        // Find gene in the GRN
+        let gene_idx = self
+            .genes
+            .iter()
+            .position(|x| x.read().unwrap().name == gene_name)
+            .expect(&format!("Gene {gene_name} is not in the GRN."));
+        // Clone self
+        let mut clone = self.clone();
+        // Remove the gene
+        clone.genes.remove(gene_idx);
+        let mrs_idx = clone
+            .mrs
+            .iter()
+            .position(|x| x.read().unwrap().name == gene_name);
+        // Remove it from MRs
+        if mrs_idx.is_some() {
+            clone.mrs.remove(mrs_idx.unwrap());
+        };
+        // Remove refs to it from other genes
+        clone.genes.iter().for_each(|x| {
+            let tar_idx = x
+                .read()
+                .unwrap()
+                .tars
+                .iter()
+                .position(|y| y.read().unwrap().name == gene_name);
+            if tar_idx.is_some() {
+                x.write().unwrap().tars.remove(tar_idx.unwrap());
+            };
+            let inter_idx = x
+                .read()
+                .unwrap()
+                .in_interactions
+                .iter()
+                .position(|y| y.reg.upgrade().unwrap().read().unwrap().name == gene_name);
+            if inter_idx.is_some() {
+                x.write()
+                    .unwrap()
+                    .in_interactions
+                    .remove(inter_idx.unwrap());
+            }
+        });
+        // Adjust MR Profile
+        let mut perturbed_mr_profile = mr_profile.clone();
+        perturbed_mr_profile.mr_prod_rates.remove(&gene_name);
+        return (clone, perturbed_mr_profile);
+    }
 }
 
 impl GRN {
